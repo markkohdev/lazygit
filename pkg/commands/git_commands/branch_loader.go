@@ -233,7 +233,10 @@ func (self *BranchLoader) GetBaseBranch(branch *models.Branch, mainBranches *Mai
 }
 
 func (self *BranchLoader) obtainBranches() []*models.Branch {
-	output, err := self.getRawBranches()
+	includeUpstreamStatus := self.UserConfig().Git.BranchesShowUpstreamStatus != "never"
+	fields := branchFields(includeUpstreamStatus)
+
+	output, err := self.getRawBranches(fields)
 	if err != nil {
 		panic(err)
 	}
@@ -247,7 +250,7 @@ func (self *BranchLoader) obtainBranches() []*models.Branch {
 		}
 
 		split := strings.Split(line, "\x00")
-		if len(split) != len(branchFields) {
+		if len(split) != len(fields) {
 			// Ignore line if it isn't separated into the expected number of parts
 			// This is probably a warning message, for more info see:
 			// https://github.com/jesseduffield/lazygit/issues/1385#issuecomment-885580439
@@ -255,13 +258,13 @@ func (self *BranchLoader) obtainBranches() []*models.Branch {
 		}
 
 		storeCommitDateAsRecency := self.UserConfig().Git.LocalBranchSortOrder != "recency"
-		return obtainBranch(split, storeCommitDateAsRecency), true
+		return obtainBranch(split, storeCommitDateAsRecency, includeUpstreamStatus), true
 	})
 }
 
-func (self *BranchLoader) getRawBranches() (string, error) {
+func (self *BranchLoader) getRawBranches(fields []string) (string, error) {
 	format := strings.Join(
-		lo.Map(branchFields, func(thing string, _ int) string {
+		lo.Map(fields, func(thing string, _ int) string {
 			return "%(" + thing + ")"
 		}),
 		"%00",
@@ -286,31 +289,58 @@ func (self *BranchLoader) getRawBranches() (string, error) {
 	return self.cmd.New(cmdArgs).DontLog().RunWithOutput()
 }
 
-var branchFields = []string{
-	"HEAD",
-	"refname:short",
-	"upstream:short",
-	"upstream:track",
-	"push:track",
-	"subject",
-	"objectname",
-	"committerdate:unix",
+func branchFields(includeUpstreamStatus bool) []string {
+	if includeUpstreamStatus {
+		return []string{
+			"HEAD",
+			"refname:short",
+			"upstream:short",
+			"upstream:track",
+			"push:track",
+			"subject",
+			"objectname",
+			"committerdate:unix",
+		}
+	}
+	return []string{
+		"HEAD",
+		"refname:short",
+		"upstream:short",
+		"subject",
+		"objectname",
+		"committerdate:unix",
+	}
 }
 
 // Obtain branch information from parsed line output of getRawBranches()
-func obtainBranch(split []string, storeCommitDateAsRecency bool) *models.Branch {
+func obtainBranch(split []string, storeCommitDateAsRecency bool, includeUpstreamStatus bool) *models.Branch {
 	headMarker := split[0]
 	fullName := split[1]
 	upstreamName := split[2]
-	track := split[3]
-	pushTrack := split[4]
-	subject := split[5]
-	commitHash := split[6]
-	commitDate := split[7]
+
+	var track, pushTrack, subject, commitHash, commitDate string
+	if includeUpstreamStatus {
+		track = split[3]
+		pushTrack = split[4]
+		subject = split[5]
+		commitHash = split[6]
+		commitDate = split[7]
+	} else {
+		subject = split[3]
+		commitHash = split[4]
+		commitDate = split[5]
+	}
 
 	name := strings.TrimPrefix(fullName, "heads/")
-	aheadForPull, behindForPull, gone := parseUpstreamInfo(upstreamName, track)
-	aheadForPush, behindForPush, _ := parseUpstreamInfo(upstreamName, pushTrack)
+
+	var aheadForPull, behindForPull, aheadForPush, behindForPush string
+	var gone bool
+	if includeUpstreamStatus {
+		aheadForPull, behindForPull, gone = parseUpstreamInfo(upstreamName, track)
+		aheadForPush, behindForPush, _ = parseUpstreamInfo(upstreamName, pushTrack)
+	} else {
+		aheadForPull, behindForPull, aheadForPush, behindForPush = "?", "?", "?", "?"
+	}
 
 	recency := ""
 	if storeCommitDateAsRecency {

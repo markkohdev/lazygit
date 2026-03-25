@@ -446,6 +446,15 @@
           "type": "integer",
           "description": "When copying commit hashes to the clipboard, truncate them to this length. Set to 40 to disable truncation.",
           "default": 12
+        },
+        "branchesShowUpstreamStatus": {
+          "type": "string",
+          "enum": [
+            "always",
+            "never"
+          ],
+          "description": "Whether to show upstream ahead/behind counts in the branches panel.\nComputing these counts can be expensive for large repositories and cause the branches panel to load slowly.\nOne of: 'always' (default) | 'never'",
+          "default": "always"
         }
       },
       "additionalProperties": false,

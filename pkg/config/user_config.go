@@ -321,6 +321,10 @@ type GitConfig struct {
 	RemoteBranchSortOrder string `yaml:"remoteBranchSortOrder" jsonschema:"enum=date,enum=alphabetical"`
 	// When copying commit hashes to the clipboard, truncate them to this length. Set to 40 to disable truncation.
 	TruncateCopiedCommitHashesTo int `yaml:"truncateCopiedCommitHashesTo"`
+	// Whether to show upstream ahead/behind counts in the branches panel.
+	// Computing these counts can be expensive for large repositories and cause the branches panel to load slowly.
+	// One of: 'always' (default) | 'never'
+	BranchesShowUpstreamStatus string `yaml:"branchesShowUpstreamStatus" jsonschema:"enum=always,enum=never"`
 }
 
 type PagerType string
@@ -857,7 +861,8 @@ func GetDefaultConfig() *UserConfig {
 			CommitPrefixes:               map[string][]CommitPrefixConfig(nil),
 			BranchPrefix:                 "",
 			ParseEmoji:                   false,
-			TruncateCopiedCommitHashesTo: 12,
+			TruncateCopiedCommitHashesTo:   12,
+			BranchesShowUpstreamStatus:     "always",
 		},
 		Refresher: RefresherConfig{
 			RefreshInterval: 10,

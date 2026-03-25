@@ -15,6 +15,7 @@ func TestObtainBranch(t *testing.T) {
 		testName                 string
 		input                    []string
 		storeCommitDateAsRecency bool
+		includeUpstreamStatus    bool
 		expectedBranch           *models.Branch
 	}
 
@@ -27,6 +28,7 @@ func TestObtainBranch(t *testing.T) {
 			testName:                 "TrimHeads",
 			input:                    []string{"", "heads/a_branch", "", "", "", "subject", "123", timeStamp},
 			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    true,
 			expectedBranch: &models.Branch{
 				Name:          "a_branch",
 				AheadForPull:  "?",
@@ -42,6 +44,7 @@ func TestObtainBranch(t *testing.T) {
 			testName:                 "NoUpstream",
 			input:                    []string{"", "a_branch", "", "", "", "subject", "123", timeStamp},
 			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    true,
 			expectedBranch: &models.Branch{
 				Name:          "a_branch",
 				AheadForPull:  "?",
@@ -57,6 +60,7 @@ func TestObtainBranch(t *testing.T) {
 			testName:                 "IsHead",
 			input:                    []string{"*", "a_branch", "", "", "", "subject", "123", timeStamp},
 			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    true,
 			expectedBranch: &models.Branch{
 				Name:          "a_branch",
 				AheadForPull:  "?",
@@ -72,6 +76,7 @@ func TestObtainBranch(t *testing.T) {
 			testName:                 "IsBehindAndAhead",
 			input:                    []string{"", "a_branch", "a_remote/a_branch", "[behind 2, ahead 3]", "[behind 2, ahead 3]", "subject", "123", timeStamp},
 			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    true,
 			expectedBranch: &models.Branch{
 				Name:          "a_branch",
 				AheadForPull:  "3",
@@ -87,6 +92,7 @@ func TestObtainBranch(t *testing.T) {
 			testName:                 "RemoteBranchIsGone",
 			input:                    []string{"", "a_branch", "a_remote/a_branch", "[gone]", "[gone]", "subject", "123", timeStamp},
 			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    true,
 			expectedBranch: &models.Branch{
 				Name:          "a_branch",
 				UpstreamGone:  true,
@@ -103,6 +109,7 @@ func TestObtainBranch(t *testing.T) {
 			testName:                 "WithCommitDateAsRecency",
 			input:                    []string{"", "a_branch", "", "", "", "subject", "123", timeStamp},
 			storeCommitDateAsRecency: true,
+			includeUpstreamStatus:    true,
 			expectedBranch: &models.Branch{
 				Name:          "a_branch",
 				Recency:       "2h",
@@ -115,11 +122,60 @@ func TestObtainBranch(t *testing.T) {
 				CommitHash:    "123",
 			},
 		},
+		{
+			testName:                 "NoTrackBasic",
+			input:                    []string{"", "a_branch", "a_remote/a_branch", "subject", "123", timeStamp},
+			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    false,
+			expectedBranch: &models.Branch{
+				Name:          "a_branch",
+				AheadForPull:  "?",
+				BehindForPull: "?",
+				AheadForPush:  "?",
+				BehindForPush: "?",
+				Head:          false,
+				Subject:       "subject",
+				CommitHash:    "123",
+			},
+		},
+		{
+			testName:                 "NoTrackNoUpstream",
+			input:                    []string{"*", "a_branch", "", "subject", "abc", timeStamp},
+			storeCommitDateAsRecency: false,
+			includeUpstreamStatus:    false,
+			expectedBranch: &models.Branch{
+				Name:          "a_branch",
+				AheadForPull:  "?",
+				BehindForPull: "?",
+				AheadForPush:  "?",
+				BehindForPush: "?",
+				Head:          true,
+				Subject:       "subject",
+				CommitHash:    "abc",
+			},
+		},
+		{
+			testName:                 "NoTrackWithRecency",
+			input:                    []string{"", "a_branch", "", "subject", "def", timeStamp},
+			storeCommitDateAsRecency: true,
+			includeUpstreamStatus:    false,
+			expectedBranch: &models.Branch{
+				Name:          "a_branch",
+				Recency:       "2h",
+				AheadForPull:  "?",
+				BehindForPull: "?",
+				AheadForPush:  "?",
+				BehindForPush: "?",
+				Head:          false,
+				Subject:       "subject",
+				CommitHash:    "def",
+			},
+		},
 	}
 
 	for _, s := range scenarios {
 		t.Run(s.testName, func(t *testing.T) {
-			branch := obtainBranch(s.input, s.storeCommitDateAsRecency)
+			branch := obtainBranch(s.input, s.storeCommitDateAsRecency, s.includeUpstreamStatus)
 			assert.EqualValues(t, s.expectedBranch, branch)
 		})
 	}

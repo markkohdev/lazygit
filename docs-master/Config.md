@@ -481,6 +481,12 @@ git:
   # to 40 to disable truncation.
   truncateCopiedCommitHashesTo: 12
 
+  # Whether to show upstream ahead/behind counts in the branches panel.
+  # Computing these counts can be expensive for large repositories and cause the
+  # branches panel to load slowly.
+  # One of: 'always' (default) | 'never'
+  branchesShowUpstreamStatus: always
+
 # Periodic update checks
 update:
   # One of: 'prompt' (default) | 'background' | 'never'

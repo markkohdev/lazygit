@@ -180,3 +180,62 @@ func TestObtainBranch(t *testing.T) {
 		})
 	}
 }
+
+func TestParseUpstreamTrackPatches(t *testing.T) {
+	type scenario struct {
+		testName string
+		input    string
+		expected map[string]UpstreamTrackPatch
+	}
+
+	scenarios := []scenario{
+		{
+			testName: "Empty",
+			input:    "",
+			expected: map[string]UpstreamTrackPatch{},
+		},
+		{
+			testName: "AheadAndBehind",
+			input:    "main\x00origin/main\x00[ahead 3, behind 2]\x00[ahead 1]",
+			expected: map[string]UpstreamTrackPatch{
+				"main": {AheadForPull: "3", BehindForPull: "2", AheadForPush: "1", BehindForPush: "0", UpstreamGone: false},
+			},
+		},
+		{
+			testName: "Gone",
+			input:    "feature\x00origin/feature\x00[gone]\x00[gone]",
+			expected: map[string]UpstreamTrackPatch{
+				"feature": {AheadForPull: "?", BehindForPull: "?", AheadForPush: "?", BehindForPush: "?", UpstreamGone: true},
+			},
+		},
+		{
+			testName: "NoUpstream",
+			input:    "local\x00\x00\x00",
+			expected: map[string]UpstreamTrackPatch{
+				"local": {AheadForPull: "?", BehindForPull: "?", AheadForPush: "?", BehindForPush: "?", UpstreamGone: false},
+			},
+		},
+		{
+			testName: "MultipleBranches",
+			input:    "main\x00origin/main\x00\x00\ndev\x00origin/dev\x00[behind 5]\x00",
+			expected: map[string]UpstreamTrackPatch{
+				"main": {AheadForPull: "0", BehindForPull: "0", AheadForPush: "0", BehindForPush: "0", UpstreamGone: false},
+				"dev":  {AheadForPull: "0", BehindForPull: "5", AheadForPush: "0", BehindForPush: "0", UpstreamGone: false},
+			},
+		},
+		{
+			testName: "MalformedLineSkipped",
+			input:    "only-two-fields\x00origin/foo\nmain\x00origin/main\x00\x00",
+			expected: map[string]UpstreamTrackPatch{
+				"main": {AheadForPull: "0", BehindForPull: "0", AheadForPush: "0", BehindForPush: "0", UpstreamGone: false},
+			},
+		},
+	}
+
+	for _, s := range scenarios {
+		t.Run(s.testName, func(t *testing.T) {
+			result := ParseUpstreamTrackPatches(s.input)
+			assert.EqualValues(t, s.expected, result)
+		})
+	}
+}

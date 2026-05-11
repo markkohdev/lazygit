@@ -64,15 +64,19 @@ func NewBranchLoader(
 	}
 }
 
-// Load the list of branches for the current repo
+// Load the list of branches for the current repo.
+// deferredUpstreamApply is called on the worker with a map of branch name -> upstream track data
+// when branchesShowUpstreamStatus is "deferred" and loadBehindCounts is true.
 func (self *BranchLoader) Load(reflogCommits []*models.Commit,
 	mainBranches *MainBranches,
 	oldBranches []*models.Branch,
 	loadBehindCounts bool,
 	onWorker func(func() error),
 	renderFunc func(),
+	deferredUpstreamApply func(map[string]UpstreamTrackPatch),
 ) ([]*models.Branch, error) {
-	branches := self.obtainBranches()
+	includeUpstreamStatus := self.UserConfig().Git.BranchesShowUpstreamStatus == "always"
+	branches := self.obtainBranches(includeUpstreamStatus)
 
 	if self.UserConfig().Git.LocalBranchSortOrder == "recency" {
 		reflogBranches := self.obtainReflogBranches(reflogCommits)
@@ -131,18 +135,38 @@ func (self *BranchLoader) Load(reflogCommits []*models.Commit,
 			branch.UpstreamBranch = match.Merge.Short()
 		}
 
-		// If the branch already existed, take over its BehindBaseBranch value
-		// to reduce flicker
 		if oldBranch, found := lo.Find(oldBranches, func(b *models.Branch) bool {
 			return b.Name == branch.Name
 		}); found {
+			// Take over BehindBaseBranch to reduce flicker
 			branch.BehindBaseBranch.Store(oldBranch.BehindBaseBranch.Load())
+
+			// In deferred/never mode, carry over previously-fetched upstream
+			// track values so we don't flash "?" on every refresh
+			if !includeUpstreamStatus {
+				branch.AheadForPull = oldBranch.AheadForPull
+				branch.BehindForPull = oldBranch.BehindForPull
+				branch.AheadForPush = oldBranch.AheadForPush
+				branch.BehindForPush = oldBranch.BehindForPush
+				branch.UpstreamGone = oldBranch.UpstreamGone
+			}
 		}
 	}
 
 	if loadBehindCounts && self.UserConfig().Gui.ShowDivergenceFromBaseBranch != "none" {
 		onWorker(func() error {
 			return self.GetBehindBaseBranchValuesForAllBranches(branches, mainBranches, renderFunc)
+		})
+	}
+
+	if loadBehindCounts && self.UserConfig().Git.BranchesShowUpstreamStatus == "deferred" {
+		onWorker(func() error {
+			patches, err := self.FetchUpstreamTrackPatches()
+			if err != nil {
+				return err
+			}
+			deferredUpstreamApply(patches)
+			return nil
 		})
 	}
 
@@ -232,8 +256,7 @@ func (self *BranchLoader) GetBaseBranch(branch *models.Branch, mainBranches *Mai
 	return split[0], nil
 }
 
-func (self *BranchLoader) obtainBranches() []*models.Branch {
-	includeUpstreamStatus := self.UserConfig().Git.BranchesShowUpstreamStatus != "never"
+func (self *BranchLoader) obtainBranches(includeUpstreamStatus bool) []*models.Branch {
 	fields := branchFields(includeUpstreamStatus)
 
 	output, err := self.getRawBranches(fields)
@@ -388,6 +411,60 @@ func parseDifference(track string, regexStr string) string {
 		return match[1]
 	}
 	return "0"
+}
+
+type UpstreamTrackPatch struct {
+	AheadForPull  string
+	BehindForPull string
+	AheadForPush  string
+	BehindForPush string
+	UpstreamGone  bool
+}
+
+var upstreamTrackFields = []string{
+	"refname:short",
+	"upstream:short",
+	"upstream:track",
+	"push:track",
+}
+
+func (self *BranchLoader) FetchUpstreamTrackPatches() (map[string]UpstreamTrackPatch, error) {
+	output, err := self.getRawBranches(upstreamTrackFields)
+	if err != nil {
+		return nil, err
+	}
+
+	return ParseUpstreamTrackPatches(output), nil
+}
+
+func ParseUpstreamTrackPatches(output string) map[string]UpstreamTrackPatch {
+	result := map[string]UpstreamTrackPatch{}
+	for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
+		if line == "" {
+			continue
+		}
+		split := strings.Split(line, "\x00")
+		if len(split) != len(upstreamTrackFields) {
+			continue
+		}
+
+		name := strings.TrimPrefix(split[0], "heads/")
+		upstreamName := split[1]
+		track := split[2]
+		pushTrack := split[3]
+
+		aheadForPull, behindForPull, gone := parseUpstreamInfo(upstreamName, track)
+		aheadForPush, behindForPush, _ := parseUpstreamInfo(upstreamName, pushTrack)
+
+		result[name] = UpstreamTrackPatch{
+			AheadForPull:  aheadForPull,
+			BehindForPull: behindForPull,
+			AheadForPush:  aheadForPush,
+			BehindForPush: behindForPush,
+			UpstreamGone:  gone,
+		}
+	}
+	return result
 }
 
 // TODO: only look at the new reflog commits, and otherwise store the recencies in

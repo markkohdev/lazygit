@@ -93,10 +93,17 @@ func (b *Branch) IsTrackingRemote() bool {
 	return b.UpstreamRemote != ""
 }
 
+// Whether the upstream ahead/behind counts have been determined (as opposed
+// to being "?" because branchesShowUpstreamStatus is "never" or "deferred"
+// and the background fetch hasn't completed yet).
+func (b *Branch) UpstreamStatusKnown() bool {
+	return b.AheadForPull != "?" && b.BehindForPull != "?"
+}
+
 // we know that the remote branch is not stored locally based on our pushable/pullable
 // count being question marks.
 func (b *Branch) RemoteBranchStoredLocally() bool {
-	return b.IsTrackingRemote() && b.AheadForPull != "?" && b.BehindForPull != "?"
+	return b.IsTrackingRemote() && b.UpstreamStatusKnown()
 }
 
 func (b *Branch) RemoteBranchNotStoredLocally() bool {

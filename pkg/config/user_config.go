@@ -323,8 +323,10 @@ type GitConfig struct {
 	TruncateCopiedCommitHashesTo int `yaml:"truncateCopiedCommitHashesTo"`
 	// Whether to show upstream ahead/behind counts in the branches panel.
 	// Computing these counts can be expensive for large repositories and cause the branches panel to load slowly.
-	// One of: 'always' (default) | 'never'
-	BranchesShowUpstreamStatus string `yaml:"branchesShowUpstreamStatus" jsonschema:"enum=always,enum=never"`
+	// 'always' includes the data in the initial load (slowest). 'deferred' loads branches fast, then
+	// backfills upstream status in the background. 'never' skips upstream status entirely (fastest).
+	// One of: 'always' (default) | 'deferred' | 'never'
+	BranchesShowUpstreamStatus string `yaml:"branchesShowUpstreamStatus" jsonschema:"enum=always,enum=deferred,enum=never"`
 }
 
 type PagerType string

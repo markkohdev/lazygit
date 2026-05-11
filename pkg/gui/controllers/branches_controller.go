@@ -630,11 +630,13 @@ func (self *BranchesController) fastForward(branch *models.Branch) error {
 	if !branch.IsTrackingRemote() {
 		return errors.New(self.c.Tr.FwdNoUpstream)
 	}
-	if !branch.RemoteBranchStoredLocally() {
-		return errors.New(self.c.Tr.FwdNoLocalUpstream)
-	}
-	if branch.IsAheadForPull() {
-		return errors.New(self.c.Tr.FwdCommitsToPush)
+	if branch.UpstreamStatusKnown() {
+		if !branch.RemoteBranchStoredLocally() {
+			return errors.New(self.c.Tr.FwdNoLocalUpstream)
+		}
+		if branch.IsAheadForPull() {
+			return errors.New(self.c.Tr.FwdCommitsToPush)
+		}
 	}
 
 	action := self.c.Tr.Actions.FastForwardBranch

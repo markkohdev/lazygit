@@ -32,6 +32,7 @@ func (self *GpgHelper) WithGpgHandling(cmdObj *oscommands.CmdObj, configKey git_
 				return err
 			}
 		}
+		self.syncScreenIfConfigured()
 		self.c.Refresh(types.RefreshOptions{Mode: types.ASYNC, Scope: refreshScope})
 
 		return err
@@ -43,6 +44,7 @@ func (self *GpgHelper) WithGpgHandling(cmdObj *oscommands.CmdObj, configKey git_
 func (self *GpgHelper) runAndStream(cmdObj *oscommands.CmdObj, waitingStatus string, onSuccess func() error, refreshScope []types.RefreshableView) error {
 	return self.c.WithWaitingStatus(waitingStatus, func(gocui.Task) error {
 		if err := cmdObj.StreamOutput().Run(); err != nil {
+			self.syncScreenIfConfigured()
 			self.c.Refresh(types.RefreshOptions{Mode: types.ASYNC, Scope: refreshScope})
 			return fmt.Errorf(
 				self.c.Tr.GitCommandFailed, self.c.UserConfig().Keybinding.Universal.ExtrasMenu,
@@ -55,7 +57,14 @@ func (self *GpgHelper) runAndStream(cmdObj *oscommands.CmdObj, waitingStatus str
 			}
 		}
 
+		self.syncScreenIfConfigured()
 		self.c.Refresh(types.RefreshOptions{Mode: types.ASYNC, Scope: refreshScope})
 		return nil
 	})
+}
+
+func (self *GpgHelper) syncScreenIfConfigured() {
+	if self.c.UserConfig().Git.Commit.RefreshAfterCommit {
+		gocui.Screen.Sync()
+	}
 }

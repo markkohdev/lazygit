@@ -361,6 +361,9 @@ type CommitConfig struct {
 	AutoWrapCommitMessage bool `yaml:"autoWrapCommitMessage"`
 	// If autoWrapCommitMessage is true, the width to wrap to
 	AutoWrapWidth int `yaml:"autoWrapWidth"`
+	// If true, force a full screen repaint after a commit completes.
+	// Useful when pre-commit hooks produce terminal output that corrupts the TUI.
+	RefreshAfterCommit bool `yaml:"refreshAfterCommit"`
 }
 
 type MergingConfig struct {
@@ -830,11 +833,12 @@ func GetDefaultConfig() *UserConfig {
 			SwitchTabsWithPanelJumpKeys:  false,
 		},
 		Git: GitConfig{
-			Commit: CommitConfig{
-				SignOff:               false,
-				AutoWrapCommitMessage: true,
-				AutoWrapWidth:         72,
-			},
+		Commit: CommitConfig{
+			SignOff:               false,
+			AutoWrapCommitMessage: true,
+			AutoWrapWidth:         72,
+			RefreshAfterCommit:    false,
+		},
 			Merging: MergingConfig{
 				ManualCommit:       false,
 				Args:               "",

@@ -168,6 +168,7 @@ func (self *GlobalController) createCustomPatchOptionsMenu() error {
 }
 
 func (self *GlobalController) refresh() error {
+	gocui.Screen.Sync()
 	self.c.Refresh(types.RefreshOptions{Mode: types.ASYNC})
 	return nil
 }

@@ -469,6 +469,22 @@ func (self *RefreshHelper) refreshBranches(refreshWorktrees bool, keepBranchSele
 				self.refreshStatus()
 				return nil
 			})
+		},
+		func(patches map[string]git_commands.UpstreamTrackPatch) {
+			self.c.OnUIThread(func() error {
+				for _, b := range self.c.Model().Branches {
+					if p, ok := patches[b.Name]; ok {
+						b.AheadForPull = p.AheadForPull
+						b.BehindForPull = p.BehindForPull
+						b.AheadForPush = p.AheadForPush
+						b.BehindForPush = p.BehindForPush
+						b.UpstreamGone = p.UpstreamGone
+					}
+				}
+				self.c.Contexts().Branches.HandleRender()
+				self.refreshStatus()
+				return nil
+			})
 		})
 	if err != nil {
 		self.c.Log.Error(err)

@@ -321,6 +321,12 @@ type GitConfig struct {
 	RemoteBranchSortOrder string `yaml:"remoteBranchSortOrder" jsonschema:"enum=date,enum=alphabetical"`
 	// When copying commit hashes to the clipboard, truncate them to this length. Set to 40 to disable truncation.
 	TruncateCopiedCommitHashesTo int `yaml:"truncateCopiedCommitHashesTo"`
+	// Whether to show upstream ahead/behind counts in the branches panel.
+	// Computing these counts can be expensive for large repositories and cause the branches panel to load slowly.
+	// 'always' includes the data in the initial load (slowest). 'deferred' loads branches fast, then
+	// backfills upstream status in the background. 'never' skips upstream status entirely (fastest).
+	// One of: 'always' (default) | 'deferred' | 'never'
+	BranchesShowUpstreamStatus string `yaml:"branchesShowUpstreamStatus" jsonschema:"enum=always,enum=deferred,enum=never"`
 }
 
 type PagerType string
@@ -355,6 +361,9 @@ type CommitConfig struct {
 	AutoWrapCommitMessage bool `yaml:"autoWrapCommitMessage"`
 	// If autoWrapCommitMessage is true, the width to wrap to
 	AutoWrapWidth int `yaml:"autoWrapWidth"`
+	// If true, force a full screen repaint after a commit completes.
+	// Useful when pre-commit hooks produce terminal output that corrupts the TUI.
+	RefreshAfterCommit bool `yaml:"refreshAfterCommit"`
 }
 
 type MergingConfig struct {
@@ -824,11 +833,12 @@ func GetDefaultConfig() *UserConfig {
 			SwitchTabsWithPanelJumpKeys:  false,
 		},
 		Git: GitConfig{
-			Commit: CommitConfig{
-				SignOff:               false,
-				AutoWrapCommitMessage: true,
-				AutoWrapWidth:         72,
-			},
+		Commit: CommitConfig{
+			SignOff:               false,
+			AutoWrapCommitMessage: true,
+			AutoWrapWidth:         72,
+			RefreshAfterCommit:    false,
+		},
 			Merging: MergingConfig{
 				ManualCommit:       false,
 				Args:               "",
@@ -857,7 +867,8 @@ func GetDefaultConfig() *UserConfig {
 			CommitPrefixes:               map[string][]CommitPrefixConfig(nil),
 			BranchPrefix:                 "",
 			ParseEmoji:                   false,
-			TruncateCopiedCommitHashesTo: 12,
+			TruncateCopiedCommitHashesTo:   12,
+			BranchesShowUpstreamStatus:     "always",
 		},
 		Refresher: RefresherConfig{
 			RefreshInterval: 10,
